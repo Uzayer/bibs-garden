@@ -60,18 +60,32 @@ The `.velite/` directory is gitignored and generated at build time.
 
 ### Collections
 
-| Export | Source pattern | Key fields |
+| velite.config key | Source pattern | Key fields |
 |---|---|---|
-| `allGardenNotes` | `content/garden/**/*.md` | title, tags, status, created, content |
-| `allLibraryItems` | `content/library/**/*.md` | title, tags, cover, rating, author, year |
-| `allRefs` | `content/refs/**/*.md` | title, tags, source, author |
-| `allAntiLibraryItems` | `content/anti-library/**/*.md` | title, tags, cover, author, year |
+| `gardenNotes` | `content/garden/**/*.md` | title, tags, status, source, author, created, content |
+| `libraryItems` | `content/library/**/*.md` | title, type, status, tags, cover, rating, author, year, content |
+| `refs` | `content/ref/**/*.md` | title, tags, source, author, published, created, content |
 
 All collections share: `publish: boolean` (default true), `slug` (computed from filename), `content` (rendered HTML).
 
+Import via the `#content` alias:
+```ts
+import { gardenNotes, libraryItems, refs } from '#content'
+```
+
+### Null-safe schema helpers
+
+The vault publisher (MkDocs Publisher plugin) writes empty YAML keys as `null`, not `undefined`. Plain `.optional()` rejects null values. Use the helpers defined at the top of `velite.config.ts` for all optional fields:
+
+- `yamlOptionalString()` — coerces `null | '' | undefined` → `undefined`, then validates as `string | undefined`
+- `yamlOptionalNumber()` — same for numbers
+- `vaultAuthor()` — accepts `string | string[] | null`, strips `[[wikilinks]]`, joins arrays with `, `
+
+Never use `s.string().optional()` directly for frontmatter fields that come from the vault.
+
 ### Content source
 
-`content/` is currently empty. In production it is populated by the **Enveloppe** Obsidian plugin pushing notes from the vault. Locally, symlink the subdirectories to the vault or copy files manually.
+`content/` is populated by the **MkDocs Publisher** Obsidian plugin (`obsidian-mkdocs-publisher`). Config in the vault at `.obsidian/plugins/obsidian-mkdocs-publisher/data.json`: repo `Uzayer/bibs-garden`, branch `main`, upload root `content/`, share key `publish`. The vault is the source of truth for file paths and frontmatter shape; Velite must accept whatever the plugin writes.
 
 ### Path aliases
 
