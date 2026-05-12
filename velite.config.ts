@@ -1,3 +1,6 @@
+import type { Root } from 'mdast'
+import type { Plugin } from 'unified'
+import { visit } from 'unist-util-visit'
 import { defineConfig, s, z } from 'velite'
 
 /**
@@ -16,8 +19,28 @@ const yamlOptionalNumber = () =>
     z.number().optional(),
   )
 
+/** Inner part of `[[...]]`: `Page`, `Page|Alias`, `Page#Heading`, `Page#Heading|Alias`. */
+const displayFromWikilinkInner = (inner: string) => {
+  const t = inner.trim()
+  const pipe = t.indexOf('|')
+  if (pipe !== -1) return t.slice(pipe + 1).trim()
+  const hash = t.indexOf('#')
+  if (hash !== -1) return t.slice(0, hash).trim()
+  return t
+}
+
 const wikilinkToPlain = (value: string) =>
-  value.replace(/\[\[([^\]]+)\]\]/g, '$1')
+  value.replace(/\[\[([^\]]+)\]\]/g, (_, inner: string) =>
+    displayFromWikilinkInner(inner),
+  )
+
+/** Strip Obsidian wikilinks in markdown bodies to plain display text (no links). */
+const remarkStripWikilinks: Plugin<[], Root> = () => (tree) => {
+  visit(tree, 'text', (node) => {
+    if (typeof node.value !== 'string' || !node.value.includes('[[')) return
+    node.value = wikilinkToPlain(node.value)
+  })
+}
 
 /** String, wikilink list, or YAML null — as emitted from the vault. */
 const vaultAuthor = () =>
@@ -125,6 +148,9 @@ const refs = {
 
 export default defineConfig({
   root: 'content',
+  markdown: {
+    remarkPlugins: [remarkStripWikilinks],
+  },
   output: {
     data: '.velite',
     assets: 'public/static',
