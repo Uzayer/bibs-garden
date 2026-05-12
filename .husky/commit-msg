@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+commit_msg_file="${1:?}"
+
+# Remove Co-authored-by trailers (AI attribution). Human author owns commits.
+tmp="$(mktemp "${TMPDIR:-/tmp}/bibs-garden-commit-msg.XXXXXX")" || exit 1
+grep -viE '^\s*co-authored-by:' "$commit_msg_file" > "$tmp" || true
+mv "$tmp" "$commit_msg_file"
+
+pnpm exec commitlint --edit "$commit_msg_file"
