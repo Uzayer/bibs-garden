@@ -1,4 +1,36 @@
-import { defineConfig, s } from 'velite'
+import { defineConfig, s, z } from 'velite'
+
+/**
+ * Obsidian / MkDocs Publisher often serializes empty frontmatter keys as YAML `null`.
+ * Zod's `.optional()` only treats `undefined` as absent, not `null`.
+ */
+const yamlOptionalString = () =>
+  z.preprocess(
+    (v) => (v === null || v === undefined || v === '' ? undefined : v),
+    z.string().optional(),
+  )
+
+const yamlOptionalNumber = () =>
+  z.preprocess(
+    (v) => (v === null || v === undefined ? undefined : v),
+    z.number().optional(),
+  )
+
+const wikilinkToPlain = (value: string) =>
+  value.replace(/\[\[([^\]]+)\]\]/g, '$1')
+
+/** String, wikilink list, or YAML null — as emitted from the vault. */
+const vaultAuthor = () =>
+  z.preprocess((v) => {
+    if (v === null || v === undefined || v === '') return undefined
+    if (typeof v === 'string') return wikilinkToPlain(v)
+    if (Array.isArray(v))
+      return v
+        .map((a) => wikilinkToPlain(String(a)))
+        .filter(Boolean)
+        .join(', ')
+    return undefined
+  }, z.string().optional())
 
 const slugify = (path: string) =>
   path
@@ -15,14 +47,14 @@ const gardenNotes = {
   schema: s
     .object({
       title: s.string(),
-      description: s.string().optional(),
+      description: yamlOptionalString(),
       publish: s.boolean().default(true),
       tags: s.array(s.string()).default([]),
-      source: s.string().optional(),
-      author: s.string().optional(),
-      published: s.string().optional(),
-      created: s.string().optional(),
-      status: s.string().optional(),
+      source: yamlOptionalString(),
+      author: vaultAuthor(),
+      published: yamlOptionalString(),
+      created: yamlOptionalString(),
+      status: yamlOptionalString(),
       content: s.markdown(),
     })
     .transform((data, { meta }) => ({
@@ -31,21 +63,37 @@ const gardenNotes = {
     })),
 }
 
+const libraryType = z.enum(['book', 'film', 'anime', 'tv'])
+const libraryStatus = z.enum([
+  'want',
+  'reading',
+  'watching',
+  'completed',
+  'dropped',
+])
+
 const libraryItems = {
   name: 'LibraryItem',
   pattern: 'library/**/*.md',
   schema: s
     .object({
       title: s.string(),
-      description: s.string().optional(),
+      description: yamlOptionalString(),
       publish: s.boolean().default(true),
       tags: s.array(s.string()).default([]),
-      type: s.enum(['book', 'film', 'anime', 'tv']),
-      status: s.enum(['want', 'reading', 'watching', 'completed', 'dropped']).optional(),
-      cover: s.string().optional(),
-      rating: s.number().min(1).max(10).optional(),
-      author: s.string().optional(),
-      year: s.number().optional(),
+      type: z.preprocess(
+        (v) =>
+          v === null || v === undefined || v === '' ? undefined : v,
+        libraryType.optional().default('book'),
+      ),
+      status: z.preprocess(
+        (v) => (v === null || v === undefined || v === '' ? undefined : v),
+        libraryStatus.optional(),
+      ),
+      cover: yamlOptionalString(),
+      rating: yamlOptionalNumber(),
+      author: yamlOptionalString(),
+      year: yamlOptionalNumber(),
       content: s.markdown(),
     })
     .transform((data, { meta }) => ({
@@ -60,20 +108,13 @@ const refs = {
   schema: s
     .object({
       title: s.string(),
-      description: s.string().optional(),
+      description: yamlOptionalString(),
       publish: s.boolean().default(true),
       tags: s.array(s.string()).default([]),
-      source: s.string().optional(),
-      author: s
-        .union([s.string(), s.array(s.string())])
-        .optional()
-        .transform((v) =>
-          Array.isArray(v)
-            ? v.map((a) => a.replace(/\[\[([^\]]+)\]\]/g, '$1')).join(', ')
-            : v,
-        ),
-      published: s.string().optional(),
-      created: s.string().optional(),
+      source: yamlOptionalString(),
+      author: vaultAuthor(),
+      published: yamlOptionalString(),
+      created: yamlOptionalString(),
       content: s.markdown(),
     })
     .transform((data, { meta }) => ({
