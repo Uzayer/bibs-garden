@@ -18,6 +18,9 @@ const gardenNotes = {
       description: s.string().optional(),
       publish: s.boolean().default(true),
       tags: s.array(s.string()).default([]),
+      source: s.string().optional(),
+      author: s.string().optional(),
+      published: s.string().optional(),
       created: s.string().optional(),
       status: s.string().optional(),
       content: s.markdown(),
@@ -37,9 +40,10 @@ const libraryItems = {
       description: s.string().optional(),
       publish: s.boolean().default(true),
       tags: s.array(s.string()).default([]),
+      type: s.enum(['book', 'film', 'anime', 'tv']),
+      status: s.enum(['want', 'reading', 'watching', 'completed', 'dropped']).optional(),
       cover: s.string().optional(),
       rating: s.number().min(1).max(10).optional(),
-      status: s.string().optional(),
       author: s.string().optional(),
       year: s.number().optional(),
       content: s.markdown(),
@@ -52,7 +56,7 @@ const libraryItems = {
 
 const refs = {
   name: 'Ref',
-  pattern: 'refs/**/*.md',
+  pattern: 'ref/**/*.md',
   schema: s
     .object({
       title: s.string(),
@@ -60,28 +64,16 @@ const refs = {
       publish: s.boolean().default(true),
       tags: s.array(s.string()).default([]),
       source: s.string().optional(),
-      author: s.string().optional(),
+      author: s
+        .union([s.string(), s.array(s.string())])
+        .optional()
+        .transform((v) =>
+          Array.isArray(v)
+            ? v.map((a) => a.replace(/\[\[([^\]]+)\]\]/g, '$1')).join(', ')
+            : v,
+        ),
+      published: s.string().optional(),
       created: s.string().optional(),
-      content: s.markdown(),
-    })
-    .transform((data, { meta }) => ({
-      ...data,
-      slug: slugify(meta.path),
-    })),
-}
-
-const antiLibrary = {
-  name: 'AntiLibraryItem',
-  pattern: 'anti-library/**/*.md',
-  schema: s
-    .object({
-      title: s.string(),
-      description: s.string().optional(),
-      publish: s.boolean().default(true),
-      tags: s.array(s.string()).default([]),
-      cover: s.string().optional(),
-      author: s.string().optional(),
-      year: s.number().optional(),
       content: s.markdown(),
     })
     .transform((data, { meta }) => ({
@@ -99,5 +91,5 @@ export default defineConfig({
     name: '[name]-[hash:8][ext]',
     clean: true,
   },
-  collections: { gardenNotes, libraryItems, refs, antiLibrary },
+  collections: { gardenNotes, libraryItems, refs },
 })
